@@ -1,0 +1,93 @@
+import numpy as np
+import pandas as pd
+from src.utils import tensor_power
+
+
+class PolarEncoder:
+    def __init__(self, N, R, K, file_path) -> None:
+        self.N = N
+        self.R = R
+        self.K = K
+        self.rank = pd.read_csv(file_path)
+        self.freeze_positions = None
+        self.info_positions = None
+        pass
+
+    def get_N(self):
+        return self.N
+
+    def get_R(self):
+        return self.R
+
+    def get_K(self):
+        return self.K
+
+    def get_rank(self):
+        return self.rank
+
+    def get_freeze_positions(self):
+        return self.freeze_positions
+
+    def get_info_positions(self):
+        return self.info_positions
+
+    def set_info_and_freeze_positions(self):
+        reliability = np.array(self.rank["Q"])
+        # --- выбор замороженных позиций ---
+        self.freeze_positions = []
+        for idx in reliability:
+            if idx < self.N:
+                self.freeze_positions.append(idx)
+                if len(self.freeze_positions) == self.K:
+                    break
+
+        self.freeze_positions = np.sort(np.array(self.freeze_positions, dtype=int))
+        self.info_positions = np.sort(
+            np.setdiff1d(np.arange(self.N), self.freeze_positions)
+        )
+        return self.info_positions, self.freeze_positions
+
+    def get_u_vector(self, message):
+        # Вектор u
+        u = np.zeros(self.N, dtype=int)
+        # print(f"u = {u}")
+        # Вставляем значения из message в позиции info_positions
+        u[self.info_positions] = message
+        print(f"u = {u}")
+        return u
+
+    def encode(self, u):
+        """
+        Быстрое преобразование для полярного кодирования.
+        u — вектор длины N (N должно быть степени двойки).
+        Возвращает кодовое слово x.
+        """
+        x = u.copy()
+        stage = 1
+        while stage < self.N:
+            half = stage
+            step = 2 * stage
+            for i in range(0, self.N, step):
+                for j in range(half):
+                    x[i + j] ^= x[i + j + half]  # XOR комбинация
+            stage *= 2
+        # print(f"x = {x}")
+        return x
+
+    def slow_encode(self, u):
+        # Применяем полярное преобразование
+        F = np.array([[1, 0], [1, 1]])
+        n = int(np.log2(self.N))
+        G_N = tensor_power(F, n)
+        # print(f"F^⊗{n} (размер {G_N.shape[0]}x{G_N.shape[1]}):")
+        # print(f"G_N = {G_N}")
+        x = (u @ G_N) % 2
+        # print(f"x = {x}")
+        return x
+
+    def bpsk_mod(self, x):
+        s = 1 - 2 * x
+        # print(f"x = {s}")
+        return s  # 0->+1, 1->-1
+
+    pass
