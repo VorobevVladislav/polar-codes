@@ -33,18 +33,12 @@ class PolarEncoder:
 
     def set_info_and_freeze_positions(self):
         reliability = np.array(self.rank["Q"])
-        # --- выбор замороженных позиций ---
-        self.freeze_positions = []
-        for idx in reliability:
-            if idx < self.N:
-                self.freeze_positions.append(idx)
-                if len(self.freeze_positions) == self.K:
-                    break
-
-        self.freeze_positions = np.sort(np.array(self.freeze_positions, dtype=int))
-        self.info_positions = np.sort(
-            np.setdiff1d(np.arange(self.N), self.freeze_positions)
-        )
+        # Фильтруем только позиции, которые меньше N
+        valid_positions = reliability[reliability < self.N]
+        # Замороженные позиции - первые N-K (худшие надежности)
+        self.freeze_positions = np.sort(np.array(valid_positions[:self.N - self.K], dtype=int))
+        # Информационные позиции - остальные (лучшие K позиций)
+        self.info_positions = np.sort(np.array(valid_positions[self.N - self.K:], dtype=int))
         return self.info_positions, self.freeze_positions
 
     def get_u_vector(self, message):
@@ -53,7 +47,7 @@ class PolarEncoder:
         # print(f"u = {u}")
         # Вставляем значения из message в позиции info_positions
         u[self.info_positions] = message
-        print(f"u = {u}")
+        # print(f"u = {u}")
         return u
 
     def encode(self, u):

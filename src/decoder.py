@@ -115,8 +115,23 @@ class SCLDecoder:
             return [result_left, result_right], b, path_metrics
 
         d_LLR, b, path_metrics = decompose(LLR)
-        u_hat, decoded = self.decode_pm(path_metrics, message)
-        return u_hat, decoded
+        u_hat = []
+        for el in path_metrics:
+            u_hat.append(el["bit"])
+        u_hat = np.array(u_hat)
+        decoded = u_hat[self.info_positions]
+        print(f"message = {message}")
+        print(f"decoded = {decoded}")
+        successfully_decoded = np.array_equal(decoded, message)
+        if successfully_decoded:
+            print("=" * 100)
+            print("SC: УСПЕШНОЕ ДЕКОДИРОВАНИЕ")
+            print("=" * 100)
+        else:
+            print("=" * 100)
+            print("SC: ОШИБКА ДЕКОДИРОВАНИЯ")
+            print("=" * 100)
+        return u_hat, decoded, successfully_decoded
 
     def calc_pm(self, bits: list, LLR):
         def partial_decompose(bits: list, LLR, b=None, path_metrics=None):
@@ -182,29 +197,6 @@ class SCLDecoder:
         bits, d_LLR, b, path_metrics = partial_decompose(bits, LLR)
         return path_metrics[-1]
 
-    def decode_pm(self, path_metrics, message):
-        # print(recursive_to_array(d_LLR, self.N))
-        # print()
-        u_hat = []
-        for el in path_metrics:
-            u_hat.append(el["bit"])
-            # print(f"{el["id"]}: pm = {el["pm"]}, bit = {el["bit"]}")
-
-        u_hat = np.array(u_hat)
-        print(f"u_hat = {u_hat}")
-        decoded = u_hat[self.info_positions]
-        print(f"message = {message}")
-        print(f"decoded = {decoded}")
-        if np.array_equal(decoded, message):
-            print("=" * 100)
-            print("УСПЕШНОЕ ДЕКОДИРОВАНИЕ")
-            print("=" * 100)
-        else:
-            print("=" * 100)
-            print("ОШИБКА ДЕКОДИРОВАНИЯ")
-            print("=" * 100)
-        return u_hat, decoded
-
     def scl_decode(self, LLR, message):
         paths = [{"path": [], "pm": 0}]
 
@@ -244,6 +236,20 @@ class SCLDecoder:
                 # for p in paths:
                 #     print(p)
         best_path = min(paths, key=lambda x: x["pm"])
-        return best_path
+        u_hat = best_path["path"].copy()
+        u_hat = np.array(u_hat)
+        decoded = u_hat[self.info_positions]
+        # print(f"message = {message}")
+        # print(f"decoded = {decoded}")
+        successfully_decoded = np.array_equal(decoded, message)
+        # if successfully_decoded:
+        #     print("=" * 100)
+        #     print("SCL: УСПЕШНОЕ ДЕКОДИРОВАНИЕ")
+        #     print("=" * 100)
+        # else:
+        #     print("=" * 100)
+        #     print("SCL: ОШИБКА ДЕКОДИРОВАНИЯ")
+        #     print("=" * 100)
+        return u_hat, decoded, successfully_decoded
 
     pass
