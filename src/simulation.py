@@ -173,13 +173,14 @@ def run_simulation_series():
     """
     # Параметры симуляции
     N_list = [16, 32, 64]  # Длины кодов
+    # N_list = [128, 256, 512]  # Длины кодов
     R_list = [1/3, 1/2, 2/3]    # Скорости кодов
     L_list = [4, 8, 16]      # Размеры списка (L=1 - это SC декодер)
     
     # Диапазон SNR (в dB)
-    EbN0_dB_min = -1
-    EbN0_dB_max = 1
-    EbN0_dB_step = 0.5
+    EbN0_dB_min = -3
+    EbN0_dB_max = 3
+    EbN0_dB_step = 1
     EbN0_dB_list = np.arange(EbN0_dB_min, EbN0_dB_max + EbN0_dB_step, EbN0_dB_step)
     
     # Параметры симуляции
