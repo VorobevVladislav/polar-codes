@@ -50,6 +50,12 @@ class SCLDecoder:
         # print(f"({u}, {v}) → ({u_plus_v}, {u}) = {result}")
         return result
 
+    def hard_decision(self, L):
+        if L > 0:
+            return 0
+        elif L < 0:
+            return 1
+
     def sc_decode(self, LLR, message):
         def decompose(LLR, b=None, path_metrics=None):
             if b is None:
@@ -112,63 +118,69 @@ class SCLDecoder:
         u_hat, decoded = self.decode_pm(path_metrics, message)
         return u_hat, decoded
 
-    # Для scl декодера
-    def calc_pm(self, bits: list, LLR, b=None, path_metrics=None):
-        if b is None:
-            b = []
-        if path_metrics is None:
-            path_metrics = []
-        print(f"LLR lenght: {len(LLR)}, bits: {b}, LLR: {LLR}, pm: {path_metrics}")
+    def calc_pm(self, bits: list, LLR):
+        def partial_decompose(bits: list, LLR, b=None, path_metrics=None):
+            if b is None:
+                b = []
+            if path_metrics is None:
+                path_metrics = []
+            # print(f"LLR lenght: {len(LLR)}, bits: {b}, LLR: {LLR}, pm: {path_metrics}")
 
-        # выход из рекурсии
-        if len(path_metrics) == len(bits):
-            print("выход в начале")
-            return bits, LLR[0], b, path_metrics
+            # выход из рекурсии
+            if len(path_metrics) == len(bits):
+                # print("выход в начале")
+                return bits, LLR[0], b, path_metrics
 
-        if len(LLR) == 1:
-            # попали в лист
-            b.append(bits[len(path_metrics)])
-            print(f"In len=1: LLR: {LLR[0]}, b: {b}")
-            path_metrics.append({"id": len(path_metrics), "pm": LLR[0], "bit": b[-1]})
-            return bits, LLR[0], b, path_metrics
+            if len(LLR) == 1:
+                # попали в лист
+                b.append(bits[len(path_metrics)])
+                # print(f"In len=1: LLR: {LLR[0]}, b: {b}")
+                path_metrics.append(
+                    {"id": len(path_metrics), "pm": LLR[0], "bit": b[-1]}
+                )
+                return bits, LLR[0], b, path_metrics
 
-        # попали в узел
-        center = int(len(LLR) / 2)
-        left_part_copy = LLR[:center]
-        right_part_copy = LLR[center:]
+            # попали в узел
+            center = int(len(LLR) / 2)
+            left_part_copy = LLR[:center]
+            right_part_copy = LLR[center:]
 
-        # Делаем левый шаг
-        left_b = []
-        left_part = [
-            self.L_step(left_part_copy[i], right_part_copy[i]) for i in range(center)
-        ]
-        bits, result_left, left_b, path_metrics = self.calc_pm(
-            bits, left_part, left_b, path_metrics
-        )
-        # выход из рекурсии
-        if len(path_metrics) == len(bits):
-            print("выход после левого шага")
-            return bits, [result_left, None], left_b, path_metrics
+            # Делаем левый шаг
+            left_b = []
+            left_part = [
+                self.L_step(left_part_copy[i], right_part_copy[i])
+                for i in range(center)
+            ]
+            bits, result_left, left_b, path_metrics = partial_decompose(
+                bits, left_part, left_b, path_metrics
+            )
+            # выход из рекурсии
+            if len(path_metrics) == len(bits):
+                # print("выход после левого шага")
+                return bits, [result_left, None], left_b, path_metrics
 
-        # Делаем правый шаг
-        right_b = []
-        right_part = [
-            self.R_step(left_part_copy[i], right_part_copy[i], left_b[i])
-            for i in range(center)
-        ]
-        bits, result_right, right_b, path_metrics = self.calc_pm(
-            bits, right_part, right_b, path_metrics
-        )
+            # Делаем правый шаг
+            right_b = []
+            right_part = [
+                self.R_step(left_part_copy[i], right_part_copy[i], left_b[i])
+                for i in range(center)
+            ]
+            bits, result_right, right_b, path_metrics = partial_decompose(
+                bits, right_part, right_b, path_metrics
+            )
 
-        # Вычисляем биты после шагов, чтобы передать их вверх по дереву
-        b = self.u_v(right_b, left_b)
+            # Вычисляем биты после шагов, чтобы передать их вверх по дереву
+            b = self.u_v(right_b, left_b)
 
-        # выход из рекурсии
-        if len(path_metrics) == len(bits):
-            print("выход после правого шага")
+            # выход из рекурсии
+            if len(path_metrics) == len(bits):
+                # print("выход после правого шага")
+                return bits, [result_left, result_right], b, path_metrics
+
             return bits, [result_left, result_right], b, path_metrics
 
-        return bits, [result_left, result_right], b, path_metrics
+        bits, d_LLR, b, path_metrics = partial_decompose(bits, LLR)
+        return path_metrics[-1]
 
     def decode_pm(self, path_metrics, message):
         # print(recursive_to_array(d_LLR, self.N))
@@ -193,52 +205,44 @@ class SCLDecoder:
             print("=" * 100)
         return u_hat, decoded
 
-    def scl_decode(self, path_metrics):
-        # SCL
+    def scl_decode(self, LLR, message):
         paths = [{"path": [], "pm": 0}]
 
-        for el in path_metrics:
-            print("Обрабатывается", el)
-            if el["id"] in self.freeze_positions:
-                print("f")
-                print("Добавляем замороженные")
+        for i in range(self.N):
+            # print(f"Обрабатывается бит: {i}")
+            if i in self.freeze_positions:
+                # print("f")
                 for p in paths:
-                    p["path"].append(el["bit"])
-                    if el["pm"] < 0:
-                        p["pm"] += abs(el["pm"])
-                    print(p)
+                    p["path"].append(0)
+                    pm = self.calc_pm(p["path"], LLR)
+                    # print(f"pm = {pm}")
+                    if self.hard_decision(pm["pm"]) != 0:
+                        p["pm"] += abs(pm["pm"])
+                    # print(p)
+
             else:
-                print("i")
+                # print("i")
                 new_paths = []
                 for b in [0, 1]:
-                    print("Разветвление", b)
+                    # print("Разветвление:", b)
                     for p in paths:
                         new_p = {
                             "path": p["path"].copy(),
                             "pm": p["pm"],
                         }
                         new_p["path"].append(b)
-                        print("Отправляем в calc_pm")
-                        for pm in path_metrics:
-                            print(pm)
-                        _, _, _, updated_pm = self.calc_pm(
-                            new_p["path"], [pm["pm"] for pm in path_metrics]
-                        )
-                        print("Новые метрики")
-                        for u in updated_pm:
-                            print(u)
-                        if (
-                            updated_pm[-1]["bit"] == 0 and updated_pm[-1]["pm"] < 0
-                        ) or (updated_pm[-1]["bit"] == 1 and updated_pm[-1]["pm"] > 0):
-                            print("Сработал if для", updated_pm[-1])
-                            new_p["pm"] += abs(updated_pm[-1]["pm"])
-                        print("Добавляем путь к списку", new_p)
+                        updated_pm = self.calc_pm(new_p["path"], LLR)
+                        # print(f"updated_pm = {updated_pm}")
+                        if self.hard_decision(updated_pm["pm"]) != b:
+                            # print("Сработал if для", updated_pm)
+                            new_p["pm"] += abs(updated_pm["pm"])
+                        # print("Добавляем путь к списку", new_p)
                         new_paths.append(new_p)
                 new_paths.sort(key=lambda x: x["pm"])
                 paths = new_paths[: self.list_lenght]
-                print("Остались пути:")
-                for p in paths:
-                    print(p)
+                # print("Остались пути:")
+                # for p in paths:
+                #     print(p)
         best_path = min(paths, key=lambda x: x["pm"])
         return best_path
 
