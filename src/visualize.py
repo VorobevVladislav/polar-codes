@@ -24,14 +24,10 @@ def plot_fer_results(df):
                 df_R = df_L[df_L["R"] == R]
                 df_R = df_R.sort_values("EbN0_dB")
 
-                # Фильтрация точек с достаточной статистикой
-                # df_R_valid = df_R[df_R['FrameCount'] >= 100]
-                df_R_valid = df_R
-
-                if len(df_R_valid) > 1:
+                if len(df_R) > 1:
                     plt.semilogy(
-                        df_R_valid["EbN0_dB"],
-                        df_R_valid["FER"],
+                        df_R["EbN0_dB"],
+                        df_R["FER"],
                         marker="o",
                         linestyle="-",
                         linewidth=2,

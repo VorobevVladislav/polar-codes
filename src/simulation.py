@@ -1,69 +1,3 @@
-# import numpy as np
-# import pandas as pd
-# from src.channel import Channel
-# from src.encoder import PolarEncoder
-# from src.decoder import SCLDecoder
-
-# # Длина кода
-# # N = [128, 256, 512]
-# N = [16, 32, 64]
-
-# # Скорость кода
-# R = [1 / 3, 1 / 2, 2 / 3]
-
-# # Длина списка
-# L = [4, 8, 16]
-
-# # Количество отказов декодирования для перехода к следующему SNR
-# D = 3
-
-
-# # # Генерируем сообщение, состощее из случайной последовательности 0 и 1
-# # message = np.random.randint(0, 2, K)
-# # # message = np.array([1, 0, 1, 0])
-# # print(f"message = {message}")
-# SNR = [1, 2, 3]
-
-
-# # Разные длины кода
-# for n in N:
-#     # Разные скорости
-#     for r in R:
-#         # Количество информационных бит
-#         K = int(r * n)
-
-#         polar_encoder = PolarEncoder(n, r, K, "src/rank.csv")
-#         info_positions, freeze_positions = polar_encoder.set_info_and_freeze_positions()
-
-#         # Разные длины списка
-#         for l in L:
-#             scl_decoder = SCLDecoder(n, r, K, l, freeze_positions, info_positions)
-#             # Разные уровни шума
-#             for snr in SNR:
-#                 count_failed = 0
-#                 count_iter = 0
-#                 while count_failed < D:
-#                     # Генерируем НОВОЕ сообщение на каждой итерации
-#                     message = np.random.randint(0, 2, K)
-
-#                     # Кодируем сообщение
-#                     u = polar_encoder.get_u_vector(message)
-#                     x = polar_encoder.encode(u)
-#                     s = polar_encoder.bpsk_mod(x)
-
-#                     channel = Channel(snr, n)
-#                     y = channel.effect(s)
-#                     LLR = channel.calc_LLR(y)
-#                     u_hat, decoded, successfully_decoded = scl_decoder.scl_decode(
-#                         LLR, message
-#                     )
-#                     if successfully_decoded == False:
-#                         count_failed += 1
-#                     count_iter += 1
-#                     print(
-#                         f"N = {n}, R = {r:.2f}, L = {l}, K = {K}, SNR = {snr}, iter = {count_iter}, fails = {count_failed}"
-#                     )
-# file: simulation.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -100,8 +34,6 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
     scl_decoder = SCLDecoder(N, R, K, L, freeze_positions, info_positions)
 
     results = []
-    # # Генерация нулевого кодового слова
-    # message = np.zeros(K)
 
     for EbN0_dB in EbN0_dB_list:
         print(f"\nСимуляция: N={N}, R={R:.3f}, L={L}, EbN0={EbN0_dB} dB")
@@ -150,7 +82,7 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
 
         pbar.close()
 
-        # Расчет FER и BER
+        # Расчет FER
         FER = error_count / frame_count
 
         # Сохранение результатов
@@ -178,11 +110,9 @@ def run_simulation_series():
     Запуск серии симуляций для разных параметров
     """
     # Параметры симуляции
-    # N_list = [16, 32, 64]  # Длины кодов
-    # N_list = [128, 256, 512]  # Длины кодов
-    N_list = [128, 256, 512]  # Длины кодов
+    N_list = [16, 32, 64]  # Длины кодов
     R_list = [1 / 3, 1 / 2, 2 / 3]  # Скорости кодов
-    L_list = [4, 8, 16]  # Размеры списка (L=1 - это SC декодер)
+    L_list = [4, 8, 16]  # Размеры списка
 
     # Диапазон SNR (в dB)
     EbN0_dB_min = -3
@@ -192,7 +122,7 @@ def run_simulation_series():
 
     # Параметры симуляции
     max_errors = 30  # Останавливаемся после 30 ошибок
-    max_frames = 1000  # Максимум 10000 кадров на точку
+    max_frames = 10000  # Максимум 10000 кадров на точку
 
     all_results = []
 

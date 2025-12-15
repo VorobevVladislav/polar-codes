@@ -36,21 +36,23 @@ class PolarEncoder:
         # Фильтруем только позиции, которые меньше N
         valid_positions = reliability[reliability < self.N]
         # Замороженные позиции - первые N-K (худшие надежности)
-        self.freeze_positions = np.sort(np.array(valid_positions[:self.N - self.K], dtype=int))
+        self.freeze_positions = np.sort(
+            np.array(valid_positions[: self.N - self.K], dtype=int)
+        )
         # Информационные позиции - остальные (лучшие K позиций)
-        self.info_positions = np.sort(np.array(valid_positions[self.N - self.K:], dtype=int))
+        self.info_positions = np.sort(
+            np.array(valid_positions[self.N - self.K :], dtype=int)
+        )
         return self.info_positions, self.freeze_positions
 
     def get_u_vector(self, message):
         # Вектор u
         u = np.zeros(self.N, dtype=int)
-        # print(f"u = {u}")
         # Вставляем значения из message в позиции info_positions
         u[self.info_positions] = message
-        # print(f"u = {u}")
         return u
 
-    def encode(self, u):
+    def fast_encode(self, u):
         """
         Быстрое преобразование для полярного кодирования.
         u — вектор длины N (N должно быть степени двойки).
@@ -65,23 +67,18 @@ class PolarEncoder:
                 for j in range(half):
                     x[i + j] ^= x[i + j + half]  # XOR комбинация
             stage *= 2
-        # print(f"x = {x}")
         return x
 
-    def slow_encode(self, u):
+    def encode(self, u):
         # Применяем полярное преобразование
         F = np.array([[1, 0], [1, 1]])
         n = int(np.log2(self.N))
         G_N = tensor_power(F, n)
-        # print(f"F^⊗{n} (размер {G_N.shape[0]}x{G_N.shape[1]}):")
-        # print(f"G_N = {G_N}")
         x = (u @ G_N) % 2
-        # print(f"x = {x}")
         return x
 
     def bpsk_mod(self, x):
         s = 1 - 2 * x
-        # print(f"x = {s}")
-        return s  # 0->+1, 1->-1
+        return s
 
     pass
