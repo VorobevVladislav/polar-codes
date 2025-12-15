@@ -74,12 +74,13 @@ from datetime import datetime
 from src.channel import Channel
 from src.encoder import PolarEncoder
 from src.decoder import SCLDecoder
+from src.visualize import plot_fer_results
 
 
 def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000):
     """
     Симуляция полярного кода с SCL декодированием
-    
+
     Args:
         N: длина кода
         R: скорость кода
@@ -87,84 +88,88 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
         EbN0_dB_list: список значений SNR в dB
         max_errors: максимальное количество ошибок для остановки на каждом SNR
         max_frames: максимальное количество кадров для симуляции на каждом SNR
-    
+
     Returns:
         DataFrame с результатами симуляции
     """
     K = int(R * N)  # Количество информационных бит
-    
+
     # Инициализация кодера и декодера
     polar_encoder = PolarEncoder(N, R, K, "rank.csv")
     info_positions, freeze_positions = polar_encoder.set_info_and_freeze_positions()
     scl_decoder = SCLDecoder(N, R, K, L, freeze_positions, info_positions)
-    
+
     results = []
     # # Генерация нулевого кодового слова
     # message = np.zeros(K)
-    
+
     for EbN0_dB in EbN0_dB_list:
         print(f"\nСимуляция: N={N}, R={R:.3f}, L={L}, EbN0={EbN0_dB} dB")
-        
+
         # Инициализация канала для данного SNR
         channel = Channel(EbN0_dB, R)
-        
+
         error_count = 0
         frame_count = 0
-        
+
         # Прогресс-бар для симуляции
         pbar = tqdm(total=max_errors, desc=f"SNR={EbN0_dB}dB")
-        
+
         while error_count < max_errors and frame_count < max_frames:
             # Генерация случайного сообщения
             message = np.random.randint(0, 2, K)
-            
+
             # Кодирование
             u = polar_encoder.get_u_vector(message)
             x = polar_encoder.encode(u)
             s = polar_encoder.bpsk_mod(x)
-            
+
             # Передача через канал
             y = channel.add_noise(s)
-            
+
             # Расчет LLR
             llr = channel.calc_llr(y)
-            
+
             # Декодирование
-            u_hat, decoded_bits, successfully_decoded = scl_decoder.scl_decode(llr, message)
-            
+            u_hat, decoded_bits, successfully_decoded = scl_decoder.scl_decode(
+                llr, message
+            )
+
             # Проверка на ошибку декодирования
             if not successfully_decoded:
                 error_count += 1
-            
+
             frame_count += 1
-            
+
             # Обновление прогресс-бара
             pbar.n = error_count
             pbar.refresh()
-            
+
             if error_count >= max_errors:
                 break
-        
+
         pbar.close()
-        
+
         # Расчет FER и BER
         FER = error_count / frame_count
-        
+
         # Сохранение результатов
-        results.append({
-            'N': N,
-            'R': R,
-            'K': K,
-            'L': L,
-            'EbN0_dB': EbN0_dB,
-            'NoiseVariance': channel.get_noise_variance(),
-            'FrameCount': frame_count,
-            'ErrorCount': error_count,
-            'FER': FER,
-        })
-        
+        results.append(
+            {
+                "N": N,
+                "R": R,
+                "K": K,
+                "L": L,
+                "EbN0_dB": EbN0_dB,
+                "NoiseVariance": channel.get_noise_variance(),
+                "FrameCount": frame_count,
+                "ErrorCount": error_count,
+                "FER": FER,
+            }
+        )
+
         print(f"  Frames: {frame_count}, Errors: {error_count}, FER: {FER:.2e}")
-    
+
     return pd.DataFrame(results)
 
 
@@ -176,25 +181,25 @@ def run_simulation_series():
     # N_list = [16, 32, 64]  # Длины кодов
     # N_list = [128, 256, 512]  # Длины кодов
     N_list = [128, 256, 512]  # Длины кодов
-    R_list = [1/3, 1/2, 2/3]    # Скорости кодов
-    L_list = [4, 8, 16]      # Размеры списка (L=1 - это SC декодер)
-    
+    R_list = [1 / 3, 1 / 2, 2 / 3]  # Скорости кодов
+    L_list = [4, 8, 16]  # Размеры списка (L=1 - это SC декодер)
+
     # Диапазон SNR (в dB)
     EbN0_dB_min = -3
     EbN0_dB_max = 3
     EbN0_dB_step = 1
     EbN0_dB_list = np.arange(EbN0_dB_min, EbN0_dB_max + EbN0_dB_step, EbN0_dB_step)
-    
+
     # Параметры симуляции
-    max_errors = 30     # Останавливаемся после 30 ошибок
+    max_errors = 30  # Останавливаемся после 30 ошибок
     max_frames = 1000  # Максимум 10000 кадров на точку
-    
+
     all_results = []
-    
+
     print("=" * 70)
     print("Запуск симуляции полярных кодов с SCL декодированием")
     print("=" * 70)
-    
+
     # Запуск симуляций
     for N in N_list:
         for R in R_list:
@@ -202,11 +207,11 @@ def run_simulation_series():
                 K = int(R * N)
                 if K < 1:  # Пропускаем если слишком мало информационных бит
                     continue
-                    
+
                 print(f"\n{'='*60}")
                 print(f"Симуляция: N={N}, R={R:.3f}, K={K}, L={L}")
                 print(f"{'='*60}")
-                
+
                 try:
                     df = simulate_polar_code(
                         N=N,
@@ -214,80 +219,29 @@ def run_simulation_series():
                         L=L,
                         EbN0_dB_list=EbN0_dB_list,
                         max_errors=max_errors,
-                        max_frames=max_frames
+                        max_frames=max_frames,
                     )
                     all_results.append(df)
                 except Exception as e:
                     print(f"Ошибка при симуляции N={N}, R={R}, L={L}: {e}")
-    
+
     # Объединение всех результатов
     if all_results:
         final_df = pd.concat(all_results, ignore_index=True)
-        
+
         # Сохранение результатов в файл
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"polar_code_simulation_results_{timestamp}.csv"
         final_df.to_csv(filename, index=False)
         print(f"\nРезультаты сохранены в {filename}")
-        
+
         # Создание графиков FER(SNR)
         plot_fer_results(final_df)
-        
+
         return final_df
     else:
         print("Нет результатов для сохранения")
         return None
-
-
-def plot_fer_results(df):
-    """
-    Построение графиков FER от SNR
-    """
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    
-    sns.set_style("whitegrid")
-    plt.figure(figsize=(12, 8))
-    
-    # Группировка по N и L
-    for N in df['N'].unique():
-        df_N = df[df['N'] == N]
-        
-        plt.figure(figsize=(10, 6))
-        plt.title(f'FER vs SNR для N={N}', fontsize=14)
-        
-        for L in sorted(df_N['L'].unique()):
-            df_L = df_N[df_N['L'] == L]
-            
-            for R in sorted(df_L['R'].unique()):
-                df_R = df_L[df_L['R'] == R]
-                df_R = df_R.sort_values('EbN0_dB')
-                
-                # Фильтрация точек с достаточной статистикой
-                # df_R_valid = df_R[df_R['FrameCount'] >= 100]
-                df_R_valid = df_R
-                
-                if len(df_R_valid) > 1:
-                    plt.semilogy(
-                        df_R_valid['EbN0_dB'],
-                        df_R_valid['FER'],
-                        marker='o',
-                        linestyle='-',
-                        linewidth=2,
-                        markersize=6,
-                        label=f'R={R:.2f}, L={L}'
-                    )
-        
-        plt.xlabel('Eb/N0 (dB)', fontsize=12)
-        plt.ylabel('Frame Error Rate (FER)', fontsize=12)
-        plt.legend()
-        plt.grid(True, which="both", ls="-", alpha=0.2)
-        plt.ylim(1e-4, 1)
-        
-        # Сохранение графика
-        plt.tight_layout()
-        plt.savefig(f'FER_vs_SNR_N{N}.png', dpi=150, bbox_inches='tight')
-        plt.show()
 
 
 def quick_test():
@@ -295,34 +249,27 @@ def quick_test():
     Быстрый тест для проверки работы
     """
     print("Быстрый тест полярного кода (8, 4) с SCL декодированием")
-    
+
     N = 8
     R = 0.5
     K = 4
     L = 4
-    
+
     # Тестовые SNR
     EbN0_dB_list = [0, 1, 2, 3, 4]
-    
+
     df = simulate_polar_code(
-        N=N,
-        R=R,
-        L=L,
-        EbN0_dB_list=EbN0_dB_list,
-        max_errors=20,
-        max_frames=1000
+        N=N, R=R, L=L, EbN0_dB_list=EbN0_dB_list, max_errors=20, max_frames=1000
     )
-    
+
     print("\nРезультаты теста:")
-    print(df[['EbN0_dB', 'FrameCount', 'ErrorCount', 'FER']])
-    
+    print(df[["EbN0_dB", "FrameCount", "ErrorCount", "FER"]])
+
     # Построение графика для теста
     plt.figure(figsize=(8, 6))
-    plt.semilogy(df['EbN0_dB'], df['FER'], 'bo-', linewidth=2, markersize=8)
-    plt.xlabel('Eb/N0 (dB)')
-    plt.ylabel('FER')
-    plt.title(f'Полярный код ({N}, {K}), SCL декодер L={L}')
+    plt.semilogy(df["EbN0_dB"], df["FER"], "bo-", linewidth=2, markersize=8)
+    plt.xlabel("Eb/N0 (dB)")
+    plt.ylabel("FER")
+    plt.title(f"Полярный код ({N}, {K}), SCL декодер L={L}")
     plt.grid(True)
     plt.show()
-
-
