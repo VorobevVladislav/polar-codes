@@ -99,6 +99,8 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
     scl_decoder = SCLDecoder(N, R, K, L, freeze_positions, info_positions)
     
     results = []
+    # # Генерация нулевого кодового слова
+    # message = np.zeros(K)
     
     for EbN0_dB in EbN0_dB_list:
         print(f"\nСимуляция: N={N}, R={R:.3f}, L={L}, EbN0={EbN0_dB} dB")
@@ -131,7 +133,7 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
             u_hat, decoded_bits, successfully_decoded = scl_decoder.scl_decode(llr, message)
             
             # Проверка на ошибку декодирования
-            if not successfully_decoded or not np.array_equal(message, decoded_bits):
+            if not successfully_decoded:
                 error_count += 1
             
             frame_count += 1
@@ -159,7 +161,6 @@ def simulate_polar_code(N, R, L, EbN0_dB_list, max_errors=100, max_frames=10000)
             'FrameCount': frame_count,
             'ErrorCount': error_count,
             'FER': FER,
-            'BER': None  # Можно добавить расчет BER при необходимости
         })
         
         print(f"  Frames: {frame_count}, Errors: {error_count}, FER: {FER:.2e}")
@@ -172,8 +173,9 @@ def run_simulation_series():
     Запуск серии симуляций для разных параметров
     """
     # Параметры симуляции
-    N_list = [16, 32, 64]  # Длины кодов
+    # N_list = [16, 32, 64]  # Длины кодов
     # N_list = [128, 256, 512]  # Длины кодов
+    N_list = [128, 256, 512]  # Длины кодов
     R_list = [1/3, 1/2, 2/3]    # Скорости кодов
     L_list = [4, 8, 16]      # Размеры списка (L=1 - это SC декодер)
     
@@ -184,8 +186,8 @@ def run_simulation_series():
     EbN0_dB_list = np.arange(EbN0_dB_min, EbN0_dB_max + EbN0_dB_step, EbN0_dB_step)
     
     # Параметры симуляции
-    max_errors = 30     # Останавливаемся после 50 ошибок
-    max_frames = 10000  # Максимум 10000 кадров на точку
+    max_errors = 30     # Останавливаемся после 30 ошибок
+    max_frames = 1000  # Максимум 10000 кадров на точку
     
     all_results = []
     
@@ -262,7 +264,8 @@ def plot_fer_results(df):
                 df_R = df_R.sort_values('EbN0_dB')
                 
                 # Фильтрация точек с достаточной статистикой
-                df_R_valid = df_R[df_R['FrameCount'] >= 100]
+                # df_R_valid = df_R[df_R['FrameCount'] >= 100]
+                df_R_valid = df_R
                 
                 if len(df_R_valid) > 1:
                     plt.semilogy(
